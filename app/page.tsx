@@ -1,4 +1,5 @@
 import { Navbar } from "@/components/layout/navbar";
+import { FeaturesSection } from "@/components/sections/features";
 import { HeroSection } from "@/components/sections/hero";
 
 export default function HomePage() {
@@ -7,7 +8,7 @@ export default function HomePage() {
       <Navbar />
       <main className="flex-1">
         <HeroSection />
-        {/* Next sections will go here */}
+        <FeaturesSection />
       </main>
     </div>
   );

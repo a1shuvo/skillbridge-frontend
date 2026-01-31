@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-linear-to-b from-primary/5 via-background to-background pt-16 pb-24 md:pt-24 md:pb-32">
+    <section className="relative overflow-hidden bg-linear-to-b from-primary/5 via-background to-background pt-8 pb-8 md:pt-8 md:pb-8">
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center space-y-8 text-center">
           <div className="space-y-4 max-w-3xl">
