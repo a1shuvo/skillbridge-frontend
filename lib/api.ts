@@ -51,6 +51,13 @@ export const post = <T>(
 ) =>
   api<T>(endpoint, { ...options, method: "POST", body: JSON.stringify(data) });
 
+export const patch = <T>(
+  endpoint: string,
+  data: unknown,
+  options?: FetchOptions,
+) =>
+  api<T>(endpoint, { ...options, method: "PATCH", body: JSON.stringify(data) });
+
 export const put = <T>(
   endpoint: string,
   data: unknown,
