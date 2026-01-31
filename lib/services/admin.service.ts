@@ -1,4 +1,4 @@
-import { get, patch } from "@/lib/api";
+import { get, patch, post, del } from "@/lib/api";
 import type { ApiMeta, Booking, User } from "@/types";
 
 // Dashboard Stats - Matches your backend response exactly
@@ -50,12 +50,45 @@ export interface AdminBooking extends Booking {
     name: string | null;
     email: string;
   };
+  slot: {
+    id?: string;
+    startTime: string;
+    endTime: string;
+    subject?: string | null;
+  } | null;
+  review: {
+    id?: string;
+    rating: number;
+    comment: string | null;
+  } | null;
 }
 
 interface BookingsResponse {
   success: boolean;
   data: AdminBooking[];
   meta?: ApiMeta;
+}
+
+// Categories
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  totalTutors: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CategoriesResponse {
+  success: boolean;
+  data: Category[];
+  message?: string;
+}
+
+interface CategoryResponse {
+  success: boolean;
+  data: Category;
+  message?: string;
 }
 
 export const adminService = {
@@ -115,5 +148,25 @@ export const adminService = {
     return get<BookingsResponse>(
       `/api/v1/admin/bookings${query ? `?${query}` : ""}`,
     );
+  },
+
+  // Get all categories
+  async getAllCategories() {
+    return get<CategoriesResponse>("/api/v1/categories");
+  },
+
+  // Create category
+  async createCategory(name: string) {
+    return post<CategoryResponse>("/api/v1/categories", { name });
+  },
+
+  // Update category
+  async updateCategory(id: string, name: string) {
+    return patch<CategoryResponse>(`/api/v1/categories/${id}`, { name });
+  },
+
+  // Delete category
+  async deleteCategory(id: string) {
+    return del<{ success: boolean; message: string }>(`/api/v1/categories/${id}`);
   },
 };
