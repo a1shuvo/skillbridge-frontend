@@ -1,51 +1,43 @@
-import { get, patch, post } from "@/lib/api";
-import type { Booking } from "@/types";
-
-interface BookingsResponse {
-  success: boolean;
-  data: Booking[];
-  meta?: {
-    total: number;
-    page: number;
-    totalPage: number;
-  };
-}
+import { get, post, patch } from "@/lib/api"
+import type { Booking } from "@/types"
 
 interface CreateBookingData {
-  tutorId: string;
-  slotId: string;
-  note?: string;
+  tutorId: string
+  slotId: string
+  note?: string
+}
+
+interface BookingResponse {
+  success: boolean
+  message: string
+  data: Booking & {
+    slot: {
+      id: string
+      startTime: string
+      endTime: string
+      isBooked: boolean
+    }
+    tutor: {
+      name: string | null
+      email: string
+    }
+  }
 }
 
 export const bookingService = {
+  async createBooking(data: CreateBookingData) {
+    return post<BookingResponse>("/api/v1/bookings", data)
+  },
+
   async getMyBookings() {
-    return get<BookingsResponse>("/api/v1/bookings", { skipErrorToast: true });
+    return get<{ success: boolean; data: Booking[] }>("/api/v1/bookings")
   },
 
   async getBookingById(id: string) {
-    return get<{ success: boolean; data: Booking }>(`/api/v1/bookings/${id}`, {
-      skipErrorToast: true,
-    });
-  },
-
-  async createBooking(data: CreateBookingData) {
-    return post<{ success: boolean; data: Booking; clientSecret: string }>(
-      "/api/v1/bookings",
-      data,
-    );
+    return get<{ success: boolean; data: Booking }>(`/api/v1/bookings/${id}`)
   },
 
   async cancelBooking(id: string) {
-    return patch<{ success: boolean; data: Booking }>(
-      `/api/v1/bookings/${id}/cancel`,
-      {},
-    );
+    return patch<{ success: boolean; data: Booking }>(`/api/v1/bookings/${id}/cancel`, {})
   },
-
-  async completeBooking(id: string) {
-    return patch<{ success: boolean; data: Booking }>(
-      `/api/v1/bookings/${id}/complete`,
-      {},
-    );
-  },
-};
+}

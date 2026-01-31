@@ -288,17 +288,19 @@ export function TutorProfile({ tutor }: TutorProfileProps) {
                         </div>
                       )}
                     </ScrollArea>
-                    <Button
-                      className="w-full p-4"
-                      disabled={!selectedSlot}
-                      asChild
-                    >
-                      <Link
-                        href={`/tutors/${tutor.id}/book?slot=${selectedSlot}`}
-                      >
+                    {selectedSlot ? (
+                      <Button className="w-full" asChild>
+                        <Link
+                          href={`/tutors/${tutor.id}/book?slot=${selectedSlot}`}
+                        >
+                          Continue to Booking
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button className="w-full" disabled>
                         Continue to Booking
-                      </Link>
-                    </Button>
+                      </Button>
+                    )}
                   </DialogContent>
                 </Dialog>
 
