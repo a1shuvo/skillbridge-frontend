@@ -3,7 +3,7 @@ export type UserRole = "STUDENT" | "TUTOR" | "ADMIN";
 export type UserStatus = "ACTIVE" | "BANNED";
 export type BookingStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
 
-// User
+// 1. User Interface
 export interface User {
   id: string;
   name: string | null;
@@ -11,17 +11,17 @@ export interface User {
   image: string | null;
   role: UserRole;
   status: UserStatus;
-  emailVerified: boolean;
+  emailVerified?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-// Category
+// 2. Category Interface
 export interface Category {
   id: string;
   name: string;
   slug: string;
-  description?: string;
+  description?: string | null;
   createdAt?: string;
   updatedAt?: string;
   _count?: {
@@ -30,21 +30,50 @@ export interface Category {
   totalTutors?: number;
 }
 
-// Tutor Profile
+// 3. Tutor-Category Join Table
 export interface TutorCategory {
-  id: string;
+  id?: string; // Optional depending on if using Prisma ID or composite
   tutorId: string;
   categoryId: string;
   category: Category;
 }
 
+// 4. Availability Slot
+export interface AvailabilitySlot {
+  id: string;
+  tutorId: string;
+  startTime: string; // ISO String
+  endTime: string;
+  isBooked: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// 5. Review Interface
+export interface Review {
+  id: string;
+  bookingId?: string;
+  studentId: string;
+  tutorProfileId?: string;
+  rating: number;
+  comment: string | null; // Unified to allow null
+  student: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  };
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// 6. Tutor Profile Interface
 export interface TutorProfile {
   id: string;
   userId: string;
   bio: string | null;
   headline: string | null;
   location: string | null;
-  languages: string[];
+  languages?: string[]; // Kept as optional array
   hourlyRate: number;
   experience: number;
   isVerified: boolean;
@@ -56,23 +85,15 @@ export interface TutorProfile {
   reviews?: Review[];
   createdAt: string;
   updatedAt: string;
-  user?: {
+  // Merged the two user declarations into one required object
+  user: {
     name: string | null;
+    email?: string; // Optional in case of public views
     image: string | null;
   };
 }
 
-export interface AvailabilitySlot {
-  id: string;
-  tutorId: string;
-  startTime: string;
-  endTime: string;
-  isBooked: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Booking
+// 7. Booking Interface
 export interface Booking {
   id: string;
   studentId: string;
@@ -86,24 +107,7 @@ export interface Booking {
   updatedAt: string;
 }
 
-// Review
-export interface Review {
-  id: string;
-  bookingId: string;
-  studentId: string;
-  tutorProfileId: string;
-  rating: number;
-  comment: string | null;
-  student: {
-    id: string;
-    name: string | null;
-    image: string | null;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-// API Meta
+// 8. API Response Helpers
 export interface ApiMeta {
   total: number;
   page: number;
@@ -111,7 +115,6 @@ export interface ApiMeta {
   totalPage: number;
 }
 
-// Generic API Response
 export interface ApiResponse<T> {
   success: boolean;
   message: string;

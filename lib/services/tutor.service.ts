@@ -1,71 +1,125 @@
-import { get } from "@/lib/api";
-import type { ApiMeta, Review, TutorProfile } from "@/types";
+import { get, put } from "@/lib/api";
+import type {
+  ApiResponse,
+  AvailabilitySlot,
+  Booking,
+  TutorProfile,
+} from "@/types";
 
-export interface TutorFilters {
-  search?: string;
-  category?: string;
-  minRating?: number;
-  maxPrice?: number;
-  sortBy?: string;
-  page?: number;
-  limit?: number;
+// --- Types ---
+export interface TutorDashboardProfile extends Omit<
+  TutorProfile,
+  "categories"
+> {
+  user: {
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
+  categories: Array<{
+    category: { id: string; name: string };
+  }>;
 }
 
-interface TutorsResponse {
-  success: boolean;
-  data: (TutorProfile & {
-    user: {
-      name: string | null;
-      image: string | null;
-    };
-  })[];
-  meta: ApiMeta;
+export interface TutorSession extends Booking {
+  student: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
+  slot: {
+    startTime: string;
+    endTime: string;
+  } | null;
+  review?: {
+    rating: number;
+    comment: string | null;
+  } | null;
 }
 
-interface TutorDetailResponse {
+interface TutorProfileResponse {
   success: boolean;
-  data: TutorProfile & {
-    user: {
-      name: string | null;
-      image: string | null;
-      email: string;
-    };
-    reviews: Review[];
-    availability: Array<{
-      id: string;
+  data: TutorDashboardProfile;
+}
+
+export interface UpdateAvailabilityInput {
+  body: {
+    slots: {
       startTime: string;
       endTime: string;
-      isBooked: boolean;
-    }>;
+    }[];
   };
 }
 
+export interface UpdateAvailabilityResponse {
+  success: boolean;
+  message: string;
+}
+
+// --- Service ---
 export const tutorService = {
-  async getTutors(filters: TutorFilters = {}) {
-    const params = new URLSearchParams();
+  /**
+   * REPLACEMENT FOR GET /ME
+   * We use the PUT route with an empty object.
+   * Your backend upsert will return the existing profile for the current user.
+   */
+  async getMyProfile() {
+    return put<TutorProfileResponse>(
+      "/api/v1/tutors/profile",
+      {},
+      {
+        skipErrorToast: true,
+      },
+    );
+  },
 
-    Object.entries(filters).forEach(([key, value]) => {
-      if (
-        value !== undefined &&
-        value !== null &&
-        value !== "all" &&
-        value !== ""
-      ) {
-        params.set(key, String(value));
-      }
-    });
-
-    const queryString = params.toString();
-    const url = queryString
-      ? `/api/v1/tutors?${queryString}`
-      : "/api/v1/tutors";
-
-    return get<TutorsResponse>(url, { skipErrorToast: true });
+  async updateProfile(payload: {
+    body: Record<string, string | number | boolean | null>;
+  }) {
+    return put<ApiResponse<TutorProfile>>("/api/v1/tutors/profile", payload);
   },
 
   async getTutorById(id: string) {
-    return get<TutorDetailResponse>(`/api/v1/tutors/${id}`, {
+    // We expect the 'data' property of the response to be a TutorProfile
+    return get<ApiResponse<TutorProfile>>(`/api/v1/tutors/${id}`, {
       skipErrorToast: true,
     });
+  },
+
+  async getAvailability() {
+    return get<ApiResponse<AvailabilitySlot[]>>("/api/v1/tutors/availability", {
+      skipErrorToast: true,
+    });
+  },
+
+  async updateAvailability(data: UpdateAvailabilityInput) {
+    // Note: We pass 'data' directly because it already contains the { body } wrapper
+    return put<ApiResponse<{ count: number }>>(
+      "/api/v1/tutors/availability",
+      data,
+    );
+  },
+
+  async getMyBookings(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.status && params.status !== "ALL")
+      queryParams.set("status", params.status);
+    if (params?.page) queryParams.set("page", String(params.page));
+    if (params?.limit) queryParams.set("limit", String(params.limit));
+
+    const query = queryParams.toString();
+
+    // Replace <any> with <TutorSession[]>
+    return get<ApiResponse<TutorSession[]>>(
+      `/api/v1/tutors/bookings${query ? `?${query}` : ""}`,
+      {
+        skipErrorToast: true,
+      },
+    );
   },
 };
