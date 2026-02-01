@@ -6,9 +6,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api";
 import { tutorService } from "@/lib/services/tutor.service";
-import { addMinutes, format, isBefore, startOfToday } from "date-fns";
-import { AlertCircle, Clock, Loader2, Save, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { addMinutes, format, isBefore, parseISO, startOfToday } from "date-fns";
+import { AlertCircle, Clock, Loader2, Save, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 interface AvailabilitySlot {
@@ -29,87 +29,135 @@ export default function TutorAvailabilityPage() {
   const [saving, setSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [newSlots, setNewSlots] = useState<NewSlot[]>([]);
+  const [removedSlotIds, setRemovedSlotIds] = useState<Set<string>>(new Set());
 
-  const fetchAvailability = useCallback(async () => {
-    try {
-      // Use getMyProfile instead of getTutorById to avoid ID mismatch issues
-      const response = await tutorService.getMyProfile();
-      if (response.success && response.data) {
-        setAvailability(response.data.availability || []);
-      }
-    } catch (err) {
-      const error = err as ApiError;
-      console.error("Fetch availability error:", error);
-      toast.error("Failed to load availability");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Fetch tutor profile which includes availability
   useEffect(() => {
+    const fetchAvailability = async () => {
+      try {
+        setLoading(true);
+        // Get profile which contains availability slots
+        const response = await tutorService.getMyProfile();
+        if (response.data) {
+          setAvailability(response.data.availability || []);
+        }
+      } catch (err) {
+        const error = err as ApiError;
+        toast.error(error.data?.message || "Failed to load availability");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchAvailability();
-  }, [fetchAvailability]);
+  }, []);
 
   const handleAddSlot = (hour: number) => {
     const start = new Date(selectedDate);
     start.setHours(hour, 0, 0, 0);
     const end = addMinutes(start, 60);
 
+    // Check if slot is in the past
+    if (isBefore(start, new Date())) {
+      toast.error("Cannot add slots in the past");
+      return;
+    }
+
     const startTime = start.toISOString();
     const endTime = end.toISOString();
 
-    // Logging here will show you if the time is valid before it hits the state
-    console.log("Adding slot:", startTime);
+    // Check for duplicates in new slots
+    const isDuplicate = newSlots.some(
+      (slot) => new Date(slot.startTime).getTime() === start.getTime(),
+    );
 
-    setNewSlots([...newSlots, { startTime, endTime }]);
+    if (isDuplicate) {
+      toast.error("This slot is already added");
+      return;
+    }
+
+    setNewSlots((prev) => [...prev, { startTime, endTime }]);
   };
 
-  const removePendingSlot = (index: number) => {
+  const removeNewSlot = (index: number) => {
     setNewSlots((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const toggleRemoveExistingSlot = (slotId: string) => {
+    setRemovedSlotIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(slotId)) {
+        newSet.delete(slotId);
+      } else {
+        newSet.add(slotId);
+      }
+      return newSet;
+    });
+  };
+
   const handleSave = async () => {
-    // We need to send something, even if we are clearing slots
+    // Prepare final slots list:
+    // - Keep existing unbooked slots NOT marked for removal
+    // - Add all new slots
+    const slotsToKeep = availability
+      .filter((s) => !s.isBooked && !removedSlotIds.has(s.id))
+      .map((s) => ({
+        startTime: new Date(s.startTime).toISOString(),
+        endTime: new Date(s.endTime).toISOString(),
+      }));
+
+    const allSlots = [...slotsToKeep, ...newSlots];
+
+    if (allSlots.length === 0) {
+      toast.error("Please add at least one availability slot");
+      return;
+    }
+
     setSaving(true);
     try {
-      // 1. Combine existing unbooked slots with the new ones
-      // 2. Ensure they are all valid ISO strings for Zod's iso.datetime()
-      const allSlots = [
-        ...availability
-          .filter((s) => !s.isBooked) // only keep unbooked ones to re-save
-          .map((s) => ({
-            startTime: new Date(s.startTime).toISOString(),
-            endTime: new Date(s.endTime).toISOString(),
-          })),
-        ...newSlots.map((s) => ({
-          startTime: new Date(s.startTime).toISOString(),
-          endTime: new Date(s.endTime).toISOString(),
-        })),
-      ];
+      // Backend expects: { slots: [{ startTime, endTime }] }
+      // It replaces ALL unbooked slots with this list
+      await tutorService.updateAvailability({ slots: allSlots });
 
-      // Wrap in 'body' as per your updateAvailabilitySchema
-      const payload = {
-        body: {
-          slots: allSlots,
-        },
-      };
-
-      await tutorService.updateAvailability(payload);
-
-      toast.success("Availability updated");
+      toast.success("Availability updated successfully");
       setNewSlots([]);
-      await fetchAvailability(); // Refresh list from server
+      setRemovedSlotIds(new Set());
+
+      // Refresh data
+      const response = await tutorService.getMyProfile();
+      if (response.data) {
+        setAvailability(response.data.availability || []);
+      }
     } catch (err) {
       const error = err as ApiError;
-      // Log exactly what Zod is complaining about
-      console.error("Zod Error:", error.data?.errors);
-      toast.error(
-        error.data?.message || "Validation Error: Check slot formats",
-      );
+      console.error("Save error:", error);
+
+      // Handle Zod validation errors
+      if (error.data?.errorSources && Array.isArray(error.data.errorSources)) {
+        error.data.errorSources.forEach(
+          (err: { path: string; message: string }) => {
+            // Path might be "body.slots", "body.slots.0.startTime", etc.
+            if (err.path.includes("startTime")) {
+              toast.error(`Invalid start time: ${err.message}`);
+            } else if (err.path.includes("endTime")) {
+              toast.error(`Invalid end time: ${err.message}`);
+            } else if (err.path.includes("slots")) {
+              toast.error(err.message);
+            } else {
+              toast.error(`${err.path}: ${err.message}`);
+            }
+          },
+        );
+      } else {
+        toast.error(error.data?.message || "Failed to update availability");
+      }
     } finally {
       setSaving(false);
     }
   };
+
+  // Check if there are any changes to save
+  const hasChanges = newSlots.length > 0 || removedSlotIds.size > 0;
 
   if (loading) {
     return (
@@ -125,12 +173,12 @@ export default function TutorAvailabilityPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Availability</h1>
           <p className="text-muted-foreground">
-            Manage your teaching schedule.
+            Manage your teaching schedule. Booked slots cannot be modified.
           </p>
         </div>
         <Button
           onClick={handleSave}
-          disabled={saving || newSlots.length === 0}
+          disabled={saving || !hasChanges}
           className="shadow-sm"
         >
           {saving ? (
@@ -138,8 +186,7 @@ export default function TutorAvailabilityPage() {
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          Save{" "}
-          {newSlots.length > 0 ? `${newSlots.length} New Slots` : "Changes"}
+          Save Changes
         </Button>
       </div>
 
@@ -165,13 +212,17 @@ export default function TutorAvailabilityPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Clock className="h-5 w-5 text-primary" />
-              Available Times for {format(selectedDate, "MMMM d")}
+              Available Times for {format(selectedDate, "MMMM d, yyyy")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {Array.from({ length: 24 }, (_, i) => {
-                const isPending = newSlots.some(
+                const slotTime = new Date(selectedDate);
+                slotTime.setHours(i, 0, 0, 0);
+
+                const isPast = isBefore(slotTime, new Date());
+                const isNew = newSlots.some(
                   (s) =>
                     new Date(s.startTime).getHours() === i &&
                     new Date(s.startTime).getDate() === selectedDate.getDate(),
@@ -179,63 +230,141 @@ export default function TutorAvailabilityPage() {
                 const isExisting = availability.some(
                   (s) =>
                     new Date(s.startTime).getHours() === i &&
-                    new Date(s.startTime).getDate() === selectedDate.getDate(),
+                    new Date(s.startTime).getDate() ===
+                      selectedDate.getDate() &&
+                    !removedSlotIds.has(s.id),
+                );
+                const isBooked = availability.some(
+                  (s) =>
+                    new Date(s.startTime).getHours() === i &&
+                    new Date(s.startTime).getDate() ===
+                      selectedDate.getDate() &&
+                    s.isBooked,
+                );
+                const isRemoved = availability.some(
+                  (s) =>
+                    new Date(s.startTime).getHours() === i &&
+                    new Date(s.startTime).getDate() ===
+                      selectedDate.getDate() &&
+                    removedSlotIds.has(s.id),
                 );
 
                 return (
                   <Button
                     key={i}
                     variant={
-                      isPending
+                      isNew
                         ? "default"
-                        : isExisting
-                          ? "secondary"
-                          : "outline"
+                        : isRemoved
+                          ? "outline"
+                          : isBooked
+                            ? "secondary"
+                            : isExisting
+                              ? "outline"
+                              : "outline"
                     }
                     size="sm"
-                    disabled={isExisting}
+                    disabled={isPast || isBooked || isExisting}
                     onClick={() => handleAddSlot(i)}
-                    className="text-xs"
+                    className={`text-xs relative ${
+                      isRemoved ? "opacity-50 line-through" : ""
+                    } ${isBooked ? "cursor-not-allowed opacity-60" : ""}`}
                   >
-                    {format(new Date().setHours(i, 0), "h:mm a")}
+                    {format(slotTime, "h:mm a")}
+                    {isBooked && <span className="sr-only">(Booked)</span>}
                   </Button>
                 );
               })}
             </div>
 
-            {newSlots.length > 0 && (
-              <div className="rounded-lg border border-dashed p-4 bg-muted/30">
-                <h4 className="text-sm font-medium mb-3">Pending New Slots</h4>
-                <div className="flex flex-wrap gap-2">
-                  {newSlots.map((slot, idx) => (
-                    <Badge
-                      key={idx}
-                      variant="secondary"
-                      className="pl-2 pr-1 py-1 gap-1"
-                    >
-                      {format(new Date(slot.startTime), "MMM d, h:mm a")}
-                      <button
-                        onClick={() => removePendingSlot(idx)}
-                        className="rounded-full p-0.5 hover:bg-destructive hover:text-white transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
+            {/* Legend */}
+            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-primary"></div>
+                <span>New</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded border border-input"></div>
+                <span>Available</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-secondary"></div>
+                <span>Booked (Locked)</span>
+              </div>
+            </div>
+
+            {/* Pending Changes */}
+            {(newSlots.length > 0 || removedSlotIds.size > 0) && (
+              <div className="rounded-lg border border-dashed border-orange-300 p-4 bg-orange-50/30 dark:bg-orange-950/10">
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                  Pending Changes
+                </h4>
+
+                {newSlots.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Adding:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {newSlots.map((slot, idx) => (
+                        <Badge
+                          key={idx}
+                          variant="default"
+                          className="pl-2 pr-1 py-1 gap-1"
+                        >
+                          {format(parseISO(slot.startTime), "MMM d, h:mm a")}
+                          <button
+                            onClick={() => removeNewSlot(idx)}
+                            className="rounded-full p-0.5 hover:bg-destructive hover:text-white transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {removedSlotIds.size > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Removing:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {availability
+                        .filter((s) => removedSlotIds.has(s.id))
+                        .map((slot) => (
+                          <Badge
+                            key={slot.id}
+                            variant="outline"
+                            className="pl-2 pr-1 py-1 gap-1 line-through opacity-60"
+                          >
+                            {format(parseISO(slot.startTime), "MMM d, h:mm a")}
+                            <button
+                              onClick={() => toggleRemoveExistingSlot(slot.id)}
+                              className="rounded-full p-0.5 hover:bg-primary hover:text-white transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Current Published View */}
+      {/* Current Schedule */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Your Schedule</CardTitle>
+          <CardTitle className="text-lg">Your Current Schedule</CardTitle>
         </CardHeader>
         <CardContent>
-          {availability.length === 0 ? (
+          {availability.length === 0 && newSlots.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <AlertCircle className="h-10 w-10 text-muted-foreground/30 mb-2" />
               <p className="text-muted-foreground">
@@ -250,18 +379,71 @@ export default function TutorAvailabilityPage() {
                     new Date(a.startTime).getTime() -
                     new Date(b.startTime).getTime(),
                 )
-                .map((slot) => (
-                  <Badge
-                    key={slot.id}
-                    variant={slot.isBooked ? "default" : "outline"}
-                    className={
-                      slot.isBooked ? "bg-green-600 hover:bg-green-600" : ""
-                    }
+                .map((slot) => {
+                  const isRemoved = removedSlotIds.has(slot.id);
+                  return (
+                    <Badge
+                      key={slot.id}
+                      variant={
+                        slot.isBooked
+                          ? "secondary"
+                          : isRemoved
+                            ? "outline"
+                            : "default"
+                      }
+                      className={`pl-3 pr-2 py-1.5 gap-2 ${
+                        slot.isBooked
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                          : isRemoved
+                            ? "opacity-50 line-through"
+                            : ""
+                      }`}
+                    >
+                      <span>
+                        {format(parseISO(slot.startTime), "MMM d, h:mm a")}
+                        {slot.isBooked && " (Booked)"}
+                      </span>
+
+                      {!slot.isBooked && !isRemoved && (
+                        <button
+                          onClick={() => toggleRemoveExistingSlot(slot.id)}
+                          className="rounded-full p-0.5 hover:bg-destructive hover:text-white transition-colors"
+                          title="Remove slot"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {isRemoved && (
+                        <button
+                          onClick={() => toggleRemoveExistingSlot(slot.id)}
+                          className="rounded-full p-0.5 hover:bg-primary hover:text-white transition-colors"
+                          title="Undo remove"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  );
+                })}
+
+              {/* Show new slots in the list too */}
+              {newSlots.map((slot, idx) => (
+                <Badge
+                  key={`new-${idx}`}
+                  variant="default"
+                  className="pl-3 pr-2 py-1.5 gap-2 bg-blue-600"
+                >
+                  {format(parseISO(slot.startTime), "MMM d, h:mm a")}
+                  <span className="text-xs opacity-75">(New)</span>
+                  <button
+                    onClick={() => removeNewSlot(idx)}
+                    className="rounded-full p-0.5 hover:bg-destructive hover:text-white transition-colors"
                   >
-                    {format(new Date(slot.startTime), "MMM d, h:mm a")}
-                    {slot.isBooked && " (Booked)"}
-                  </Badge>
-                ))}
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
             </div>
           )}
         </CardContent>

@@ -1,9 +1,21 @@
+"use client";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { signOut } from "@/lib/auth";
+import { authClient } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, LayoutDashboard, LogOut, User } from "lucide-react";
+import {
+  BarChart3,
+  Calendar,
+  Clock,
+  LogOut,
+  Settings,
+  User,
+} from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface TutorSidebarProps {
   user: {
@@ -16,14 +28,39 @@ interface TutorSidebarProps {
 }
 
 const navItems = [
-  { href: "/dashboard/tutor", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/tutor/bookings", label: "My Sessions", icon: Calendar }, // Added bookings
+  { href: "/dashboard/tutor", label: "Overview", icon: BarChart3 },
+  { href: "/dashboard/tutor/bookings", label: "My Sessions", icon: Calendar },
   { href: "/dashboard/tutor/availability", label: "Availability", icon: Clock },
   { href: "/dashboard/tutor/profile", label: "Profile", icon: User },
+  { href: "/dashboard/tutor/settings", label: "Settings", icon: Settings },
 ];
 
 export function TutorSidebar({ user }: TutorSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await authClient.signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            toast.success("Signed out successfully");
+            router.push("/login");
+            router.refresh(); // Clear cached data
+          },
+          onError: (ctx) => {
+            toast.error(ctx.error?.message || "Failed to sign out");
+            setIsSigningOut(false);
+          },
+        },
+      });
+    } catch {
+      toast.error("An unexpected error occurred");
+      setIsSigningOut(false);
+    }
+  };
 
   return (
     <aside className="w-64 bg-card border-r min-h-screen p-6 flex flex-col">
@@ -54,22 +91,32 @@ export function TutorSidebar({ user }: TutorSidebarProps) {
 
       <div className="pt-6 border-t space-y-4">
         <div className="flex items-center gap-3 px-3">
-          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-            {user.name?.[0] || "T"}
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">{user.name || "Tutor"}</span>
-            <span className="text-xs text-muted-foreground">{user.email}</span>
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.image || ""} alt={user.name || "Tutor"} />
+            <AvatarFallback>{user.name?.[0] || "T"}</AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col overflow-hidden">
+            <span className="text-sm font-medium truncate">
+              {user.name || "Tutor"}
+            </span>
+            <span className="text-xs text-muted-foreground truncate">
+              {user.email}
+            </span>
           </div>
         </div>
 
         <Button
           variant="outline"
           className="w-full justify-start gap-2"
-          onClick={() => signOut()}
+          onClick={handleSignOut}
+          disabled={isSigningOut}
         >
-          <LogOut className="h-4 w-4" />
-          Sign Out
+          {isSigningOut ? (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          {isSigningOut ? "Signing out..." : "Sign Out"}
         </Button>
       </div>
     </aside>

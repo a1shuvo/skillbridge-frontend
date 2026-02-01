@@ -1,29 +1,29 @@
-import { Suspense } from "react"
-import { notFound } from "next/navigation"
-import { Navbar } from "@/components/layout/navbar"
-import { TutorProfile } from "@/components/tutors/tutor-profile"
-import { TutorProfileSkeleton } from "@/components/tutors/tutor-profile-skeleton"
-import { tutorService } from "@/lib/services/tutor.service"
+import { Navbar } from "@/components/layout/navbar";
+import { TutorProfile } from "@/components/tutors/tutor-profile";
+import { TutorProfileSkeleton } from "@/components/tutors/tutor-profile-skeleton";
+import { tutorService } from "@/lib/services/tutor.service";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 interface TutorPageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }
 
 async function getTutor(id: string) {
   try {
-    const res = await tutorService.getTutorById(id)
-    return res.data
+    const res = await tutorService.getTutorById(id);
+    return res.data;
   } catch {
-    return null
+    return null;
   }
 }
 
 export default async function TutorPage({ params }: TutorPageProps) {
-  const { id } = await params
-  const tutor = await getTutor(id)
+  const { id } = await params;
+  const tutor = await getTutor(id);
 
-  if (!tutor) {
-    notFound()
+  if (!tutor || !tutor.user?.email) {
+    notFound();
   }
 
   return (
@@ -35,5 +35,5 @@ export default async function TutorPage({ params }: TutorPageProps) {
         </Suspense>
       </main>
     </div>
-  )
+  );
 }

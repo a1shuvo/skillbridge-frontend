@@ -11,6 +11,7 @@ export interface ApiError extends Error {
     success: boolean;
     message: string;
     errors?: Record<string, string | string[]> | ValidationError[];
+    errorSources?: Array<{ path: string; message: string }>;
   };
 }
 

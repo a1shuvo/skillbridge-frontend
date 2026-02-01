@@ -117,7 +117,7 @@ export function TutorProfile({ tutor }: TutorProfileProps) {
                     )}
                     <span className="flex items-center gap-1">
                       <Globe className="h-4 w-4" />
-                      {tutor.languages.join(", ")}
+                      {tutor.languages?.join(", ") || "N/A"}
                     </span>
                     <span className="flex items-center gap-1">
                       <GraduationCap className="h-4 w-4" />
@@ -235,7 +235,7 @@ export function TutorProfile({ tutor }: TutorProfileProps) {
                   </div>
                   <div>
                     <div className="font-semibold">
-                      {tutor.languages.length}
+                      {tutor.languages?.length || 0}
                     </div>
                     <div className="text-muted-foreground">Languages</div>
                   </div>
