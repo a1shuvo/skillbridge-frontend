@@ -122,7 +122,7 @@ export function BookingForm({ tutor, slot, initialError }: BookingFormProps) {
       setIsSuccess(true);
 
       setTimeout(() => {
-        router.push("/student/bookings");
+        router.push("/dashboard/student/bookings");
       }, 2000);
     } catch (error: Error | unknown) {
       const message =

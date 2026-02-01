@@ -103,6 +103,11 @@ export function RegisterForm() {
         if (error) {
           if (error.message?.includes("already exists")) {
             toast.error("An account with this email already exists");
+          } else if (error.message?.toLowerCase().includes("email not verified") || 
+                     error.message?.toLowerCase().includes("verify")) {
+            toast.success("Account created! Please verify your email.");
+            router.push(`/verify-email?email=${encodeURIComponent(value.email)}`);
+            return;
           } else if (error.message?.includes("invalid")) {
             toast.error("Invalid registration details");
           } else {
@@ -125,6 +130,14 @@ export function RegisterForm() {
           return;
         }
 
+        // Check if email verification is required
+        if (!user.emailVerified) {
+          toast.success("Account created! Please check your email to verify your account.");
+          router.push(`/verify-email?email=${encodeURIComponent(user.email)}`);
+          return;
+        }
+
+        // If email is already verified (e.g., auto-verified by provider), proceed to dashboard
         toast.success(
           `Welcome, ${user.name || "User"}! Your account has been created.`,
         );

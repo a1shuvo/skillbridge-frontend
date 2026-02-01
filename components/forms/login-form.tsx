@@ -54,11 +54,24 @@ export function LoginForm() {
         });
 
         if (error) {
+          // Email verification error
+          if (
+            error.message?.toLowerCase().includes("email not verified") ||
+            error.message?.toLowerCase().includes("verify your email")
+          ) {
+            toast.error("Please verify your email address");
+            router.push(
+              `/verify-email?email=${encodeURIComponent(value.email)}`
+            );
+            setIsLoading(false);
+            return;
+          }
+          
           if (error.message?.includes("Invalid")) {
             toast.error("Invalid email or password");
           } else if (error.message?.includes("banned")) {
             toast.error(
-              "Your account has been suspended. Please contact support.",
+              "Your account has been suspended. Please contact support."
             );
           } else {
             toast.error(error.message || "Authentication failed");
@@ -69,9 +82,18 @@ export function LoginForm() {
         // Type assertion for custom fields
         const user = data.user as unknown as AuthUser;
 
+        // Additional safety check
+        if (!user.emailVerified) {
+          toast.error("Please verify your email address");
+          router.push(
+            `/verify-email?email=${encodeURIComponent(value.email)}`
+          );
+          return;
+        }
+
         if (user.status === "BANNED") {
           toast.error(
-            "Your account has been suspended. Please contact support.",
+            "Your account has been suspended. Please contact support."
           );
           return;
         }
@@ -96,7 +118,7 @@ export function LoginForm() {
     try {
       const callbackUrl = new URL(
         "/api/auth/callback/google",
-        window.location.origin,
+        window.location.origin
       );
       callbackUrl.searchParams.set("redirect", decodeURIComponent(returnUrl));
 
