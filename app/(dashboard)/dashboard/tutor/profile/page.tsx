@@ -114,7 +114,6 @@ export default function TutorProfilePage() {
         }
       } catch (err) {
         const error = err as ApiError;
-        console.error("Update failed:", error);
         toast.error(error.data?.message || "Failed to save changes");
       } finally {
         setIsSaving(false);
@@ -158,8 +157,7 @@ export default function TutorProfilePage() {
 
         form.reset(formData);
       }
-    } catch (error) {
-      console.error("Failed to load profile:", error);
+    } catch {
       toast.error("Could not load profile");
     } finally {
       setIsLoading(false);

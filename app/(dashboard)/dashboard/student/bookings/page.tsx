@@ -179,7 +179,7 @@ export default function StudentBookingsPage() {
               description="You don't have any scheduled sessions. Book a tutor to get started!"
               action={
                 <Button asChild>
-                  <Link href="/dashboard/student/book">Book a Session</Link>
+                  <Link href="/tutors">Book a Session</Link>
                 </Button>
               }
             />

@@ -1,5 +1,5 @@
-import { get, patch, post, del } from "@/lib/api";
-import type { ApiMeta, Booking, User } from "@/types";
+import { del, get, patch, post } from "@/lib/api";
+import type { ApiMeta, Booking } from "@/types";
 
 // Dashboard Stats - Matches your backend response exactly
 export interface DashboardStats {
@@ -23,14 +23,16 @@ export interface DashboardStats {
 // Users - Matches your backend select fields
 export interface AdminUser {
   id: string;
-  name: string | null;
   email: string;
-  role: "STUDENT" | "TUTOR" | "ADMIN";
+  name: string | null;
+  role: "ADMIN" | "TUTOR" | "STUDENT";
   status: "ACTIVE" | "BANNED";
+  image?: string | null;
   createdAt: string;
-  tutorProfile: {
+  tutorProfile?: {
     isVerified: boolean;
     avgRating: number;
+    hourlyRate: number; // Add this field
   } | null;
 }
 
@@ -126,7 +128,7 @@ export const adminService = {
     userId: string,
     payload: { status?: "ACTIVE" | "BANNED"; isVerified?: boolean },
   ) {
-    return patch<{ success: boolean; message: string; data: User }>(
+    return patch<{ success: boolean; message: string }>(
       `/api/v1/admin/users/${userId}`,
       payload,
     );
@@ -167,6 +169,8 @@ export const adminService = {
 
   // Delete category
   async deleteCategory(id: string) {
-    return del<{ success: boolean; message: string }>(`/api/v1/categories/${id}`);
+    return del<{ success: boolean; message: string }>(
+      `/api/v1/categories/${id}`,
+    );
   },
 };

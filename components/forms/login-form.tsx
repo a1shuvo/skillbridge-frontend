@@ -61,17 +61,17 @@ export function LoginForm() {
           ) {
             toast.error("Please verify your email address");
             router.push(
-              `/verify-email?email=${encodeURIComponent(value.email)}`
+              `/verify-email?email=${encodeURIComponent(value.email)}`,
             );
             setIsLoading(false);
             return;
           }
-          
+
           if (error.message?.includes("Invalid")) {
             toast.error("Invalid email or password");
           } else if (error.message?.includes("banned")) {
             toast.error(
-              "Your account has been suspended. Please contact support."
+              "Your account has been suspended. Please contact support.",
             );
           } else {
             toast.error(error.message || "Authentication failed");
@@ -85,15 +85,13 @@ export function LoginForm() {
         // Additional safety check
         if (!user.emailVerified) {
           toast.error("Please verify your email address");
-          router.push(
-            `/verify-email?email=${encodeURIComponent(value.email)}`
-          );
+          router.push(`/verify-email?email=${encodeURIComponent(value.email)}`);
           return;
         }
 
         if (user.status === "BANNED") {
           toast.error(
-            "Your account has been suspended. Please contact support."
+            "Your account has been suspended. Please contact support.",
           );
           return;
         }
@@ -104,8 +102,7 @@ export function LoginForm() {
           ROLE_ROUTES[user.role] || decodeURIComponent(returnUrl);
         router.push(targetUrl);
         router.refresh();
-      } catch (err) {
-        console.error("Login error:", err);
+      } catch {
         toast.error("Something went wrong. Please try again.");
       } finally {
         setIsLoading(false);
@@ -118,7 +115,7 @@ export function LoginForm() {
     try {
       const callbackUrl = new URL(
         "/api/auth/callback/google",
-        window.location.origin
+        window.location.origin,
       );
       callbackUrl.searchParams.set("redirect", decodeURIComponent(returnUrl));
 
@@ -126,8 +123,7 @@ export function LoginForm() {
         provider: "google",
         callbackURL: callbackUrl.toString(),
       });
-    } catch (err) {
-      console.error("Google login error:", err);
+    } catch {
       toast.error("Google login failed. Please check your configuration.");
       setGoogleLoading(false);
     }

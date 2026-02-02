@@ -24,8 +24,7 @@ async function getFeaturedTutors(): Promise<FeaturedTutorsResponse> {
         skipErrorToast: true,
       },
     );
-  } catch (error) {
-    console.error("Failed to fetch featured tutors:", error);
+  } catch {
     return { data: [] };
   }
 }

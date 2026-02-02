@@ -103,10 +103,14 @@ export function RegisterForm() {
         if (error) {
           if (error.message?.includes("already exists")) {
             toast.error("An account with this email already exists");
-          } else if (error.message?.toLowerCase().includes("email not verified") || 
-                     error.message?.toLowerCase().includes("verify")) {
+          } else if (
+            error.message?.toLowerCase().includes("email not verified") ||
+            error.message?.toLowerCase().includes("verify")
+          ) {
             toast.success("Account created! Please verify your email.");
-            router.push(`/verify-email?email=${encodeURIComponent(value.email)}`);
+            router.push(
+              `/verify-email?email=${encodeURIComponent(value.email)}`,
+            );
             return;
           } else if (error.message?.includes("invalid")) {
             toast.error("Invalid registration details");
@@ -132,7 +136,9 @@ export function RegisterForm() {
 
         // Check if email verification is required
         if (!user.emailVerified) {
-          toast.success("Account created! Please check your email to verify your account.");
+          toast.success(
+            "Account created! Please check your email to verify your account.",
+          );
           router.push(`/verify-email?email=${encodeURIComponent(user.email)}`);
           return;
         }
@@ -146,8 +152,7 @@ export function RegisterForm() {
           ROLE_ROUTES[user.role] || decodeURIComponent(returnUrl);
         router.push(targetUrl);
         router.refresh();
-      } catch (err) {
-        console.error("Registration error:", err);
+      } catch {
         toast.error("Something went wrong. Please try again.");
       } finally {
         setIsLoading(false);
@@ -168,8 +173,7 @@ export function RegisterForm() {
         provider: "google",
         callbackURL: callbackUrl.toString(),
       });
-    } catch (err) {
-      console.error("Google registration error:", err);
+    } catch {
       toast.error("Google registration failed. Please try again.");
       setGoogleLoading(false);
     }

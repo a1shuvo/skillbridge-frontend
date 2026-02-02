@@ -130,7 +130,6 @@ export default function TutorAvailabilityPage() {
       }
     } catch (err) {
       const error = err as ApiError;
-      console.error("Save error:", error);
 
       // Handle Zod validation errors
       if (error.data?.errorSources && Array.isArray(error.data.errorSources)) {

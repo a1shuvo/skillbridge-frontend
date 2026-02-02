@@ -21,7 +21,14 @@ import {
 import { ApiError } from "@/lib/api";
 import { tutorService, type TutorSession } from "@/lib/services/tutor.service";
 import { format, parseISO } from "date-fns";
-import { Calendar, Clock, Loader2, Star, User } from "lucide-react";
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  Loader2,
+  Star,
+  User,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,6 +36,7 @@ export default function TutorBookingsPage() {
   const [bookings, setBookings] = useState<TutorSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [completing, setCompleting] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -78,6 +86,40 @@ export default function TutorBookingsPage() {
       CANCELLED: "destructive",
     };
     return <Badge variant={variants[status] || "outline"}>{status}</Badge>;
+  };
+
+  const filteredBookings =
+    statusFilter === "ALL"
+      ? bookings
+      : bookings.filter((b) => b.status === statusFilter);
+
+  const handleComplete = async (bookingId: string) => {
+    if (
+      !window.confirm("Mark this session as completed? This cannot be undone.")
+    ) {
+      return;
+    }
+
+    setCompleting(bookingId);
+    try {
+      await tutorService.completeBooking(bookingId);
+      toast.success("Session marked as completed");
+
+      // Refresh bookings
+      const params: { status?: string } = {};
+      if (statusFilter !== "ALL") {
+        params.status = statusFilter;
+      }
+      const response = await tutorService.getMyBookings(params);
+      if (response.success) {
+        setBookings(response.data);
+      }
+    } catch (err) {
+      const error = err as ApiError;
+      toast.error(error.message || "Failed to complete session");
+    } finally {
+      setCompleting(null);
+    }
   };
 
   return (
@@ -147,11 +189,12 @@ export default function TutorBookingsPage() {
                     <TableHead className="w-62.5">Student</TableHead>
                     <TableHead>Date & Time</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                     <TableHead className="text-right">Review</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bookings.map((booking) => (
+                  {filteredBookings.map((booking) => (
                     <TableRow
                       key={booking.id}
                       className="hover:bg-muted/30 transition-colors"
@@ -197,6 +240,27 @@ export default function TutorBookingsPage() {
                         )}
                       </TableCell>
                       <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                      <TableCell className="text-right">
+                        {booking.status === "CONFIRMED" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleComplete(booking.id)}
+                            disabled={completing === booking.id}
+                          >
+                            {completing === booking.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                            )}
+                            Complete
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         {booking.review ? (
                           <div className="flex items-center justify-end gap-1">

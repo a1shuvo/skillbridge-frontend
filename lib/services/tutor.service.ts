@@ -1,4 +1,4 @@
-import { get, put } from "@/lib/api";
+import { get, patch, put } from "@/lib/api";
 import type { ApiResponse, AvailabilitySlot } from "@/types";
 
 // --- Types ---
@@ -81,7 +81,7 @@ interface TutorDetailItem {
     comment: string | null;
     createdAt: string;
     student: {
-      id: string; // Added
+      id: string;
       name: string | null;
       image: string | null;
     };
@@ -89,7 +89,7 @@ interface TutorDetailItem {
   availability: AvailabilitySlot[];
 }
 
-// Dashboard profile (current tutor view)
+// Dashboard profile (current tutor view) - matches GET /profile/me response
 interface TutorDashboardProfile {
   id: string;
   userId: string;
@@ -103,18 +103,32 @@ interface TutorDashboardProfile {
   avgRating: number;
   totalReviews: number;
   totalSessions: number;
+  createdAt: string;
+  updatedAt: string;
   user: {
     name: string | null;
     email: string;
     image: string | null;
   };
   categories: Array<{
+    id: string;
+    tutorId: string;
+    categoryId: string;
     category: {
       id: string;
       name: string;
+      slug: string;
     };
   }>;
-  availability: AvailabilitySlot[];
+  // All availability slots (booked and unbooked) for tutor dashboard
+  availability: Array<{
+    id: string;
+    tutorId: string;
+    startTime: string;
+    endTime: string;
+    isBooked: boolean;
+    createdAt: string;
+  }>;
   reviews: Array<{
     id: string;
     bookingId: string;
@@ -213,13 +227,17 @@ export const tutorService = {
     });
   },
 
+  // FIXED: Changed from PUT to GET and correct endpoint /profile/me
   async getMyProfile() {
-    return put<TutorProfileResponse>(
-      "/api/v1/tutors/profile",
+    return get<TutorProfileResponse>("/api/v1/tutors/profile/me", {
+      skipErrorToast: true,
+    });
+  },
+
+  async completeBooking(bookingId: string) {
+    return patch<ApiResponse<TutorSession>>(
+      `/api/v1/bookings/${bookingId}/complete`,
       {},
-      {
-        skipErrorToast: true,
-      },
     );
   },
 

@@ -58,7 +58,6 @@ export default function TutorDashboardPage() {
           // This tutor exists in the User table but hasn't created a Profile record yet
           setIsNewTutor(true);
         } else {
-          console.error("Dashboard Load Error:", apiError);
           toast.error(apiError.message || "Failed to load dashboard data");
         }
       } finally {
